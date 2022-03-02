@@ -23,7 +23,9 @@ let tipPoint;
 const segmentStyles = [segmentStyle];
 const source = new VectorSource();
 const modify = new Modify({ source: source, style: modifyStyle });
+
 const styleFunction = (feature, segments, drawType, tip) => {
+  //drawing lines for measuring tools
   const styles = [style];
   const geometry = feature.getGeometry();
   const type = geometry.getType();
@@ -97,11 +99,11 @@ const MapComponent = () => {
       }),
     });
 
-    //interaction
     _map.addInteraction(modify);
     let draw;
+    //note: There are supposed to be 2 different mode for drawing
+    //(Polygon and Line drawing) but I couldn't figure out why line drawing isn't work
     const addInteraction = () => {
-      //was intended to be able to swap between polygon and line string but something didn't seem right
       const drawType = "Polygon";
       const activeTip =
         "Click to continue drawing the " +
@@ -156,7 +158,6 @@ const MapComponent = () => {
     canvas.style.position = "absolute";
     canvas.style.border = "1px solid";
     document.body.appendChild(canvas);
-
     const markerOverlay = new Overlay({
       element: canvas,
       positioning: "center-center",
@@ -224,7 +225,7 @@ const MapComponent = () => {
     }, 1000);
   }, []);
 
-  const reset = () => {
+  const removeLines = () => {
     source.clear();
   };
 
@@ -232,7 +233,7 @@ const MapComponent = () => {
     <>
       <div ref={mapElement} className="map-container"></div>
       <div className="measuring-tool">
-        <button className="reset-button" onClick={reset}>
+        <button className="reset-button" onClick={removeLines}>
           Remove Lines
         </button>
       </div>
