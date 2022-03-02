@@ -1,6 +1,4 @@
-import "ol/ol.css";
-import Map from "ol/Map";
-import View from "ol/View";
+import { getArea, getLength } from "ol/sphere";
 import {
   Circle as CircleStyle,
   Fill,
@@ -9,17 +7,8 @@ import {
   Style,
   Text,
 } from "ol/style";
-import { Draw, Modify } from "ol/interaction";
-import { LineString, Point } from "ol/geom";
-import { OSM, Vector as VectorSource } from "ol/source";
-import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer";
-import { getArea, getLength } from "ol/sphere";
 
-const typeSelect = document.getElementById("type");
-const showSegments = document.getElementById("segments");
-const clearPrevious = document.getElementById("clear");
-
-const style = new Style({
+export const style = new Style({
   fill: new Fill({
     color: "rgba(255, 255, 255, 0.2)",
   }),
@@ -39,7 +28,7 @@ const style = new Style({
   }),
 });
 
-const labelStyle = new Style({
+export const labelStyle = new Style({
   text: new Text({
     font: "14px Calibri,sans-serif",
     fill: new Fill({
@@ -63,7 +52,7 @@ const labelStyle = new Style({
   }),
 });
 
-const tipStyle = new Style({
+export const tipStyle = new Style({
   text: new Text({
     font: "12px Calibri,sans-serif",
     fill: new Fill({
@@ -78,7 +67,7 @@ const tipStyle = new Style({
   }),
 });
 
-const modifyStyle = new Style({
+export const modifyStyle = new Style({
   image: new CircleStyle({
     radius: 5,
     stroke: new Stroke({
@@ -103,7 +92,7 @@ const modifyStyle = new Style({
   }),
 });
 
-const segmentStyle = new Style({
+export const segmentStyle = new Style({
   text: new Text({
     font: "12px Calibri,sans-serif",
     fill: new Fill({
@@ -127,9 +116,7 @@ const segmentStyle = new Style({
   }),
 });
 
-const segmentStyles = [segmentStyle];
-
-const formatLength = function (line) {
+export const formatLength = function (line) {
   const length = getLength(line);
   let output;
   if (length > 100) {
@@ -140,7 +127,7 @@ const formatLength = function (line) {
   return output;
 };
 
-const formatArea = function (polygon) {
+export const formatArea = function (polygon) {
   const area = getArea(polygon);
   let output;
   if (area > 10000) {
@@ -149,127 +136,4 @@ const formatArea = function (polygon) {
     output = Math.round(area * 100) / 100 + " m\xB2";
   }
   return output;
-};
-
-const raster = new TileLayer({
-  source: new OSM(),
-});
-
-const source = new VectorSource();
-
-const modify = new Modify({ source: source, style: modifyStyle });
-
-let tipPoint;
-
-function styleFunction(feature, segments, drawType, tip) {
-  const styles = [style];
-  const geometry = feature.getGeometry();
-  const type = geometry.getType();
-  let point, label, line;
-  if (!drawType || drawType === type) {
-    if (type === "Polygon") {
-      point = geometry.getInteriorPoint();
-      label = formatArea(geometry);
-      line = new LineString(geometry.getCoordinates()[0]);
-    } else if (type === "LineString") {
-      point = new Point(geometry.getLastCoordinate());
-      label = formatLength(geometry);
-      line = geometry;
-    }
-  }
-  if (segments && line) {
-    let count = 0;
-    line.forEachSegment(function (a, b) {
-      const segment = new LineString([a, b]);
-      const label = formatLength(segment);
-      if (segmentStyles.length - 1 < count) {
-        segmentStyles.push(segmentStyle.clone());
-      }
-      const segmentPoint = new Point(segment.getCoordinateAt(0.5));
-      segmentStyles[count].setGeometry(segmentPoint);
-      segmentStyles[count].getText().setText(label);
-      styles.push(segmentStyles[count]);
-      count++;
-    });
-  }
-  if (label) {
-    labelStyle.setGeometry(point);
-    labelStyle.getText().setText(label);
-    styles.push(labelStyle);
-  }
-  if (
-    tip &&
-    type === "Point" &&
-    !modify.getOverlay().getSource().getFeatures().length
-  ) {
-    tipPoint = geometry;
-    tipStyle.getText().setText(tip);
-    styles.push(tipStyle);
-  }
-  return styles;
-}
-
-const vector = new VectorLayer({
-  source: source,
-  style: function (feature) {
-    return styleFunction(feature, showSegments.checked);
-  },
-});
-
-const _map = new Map({
-  layers: [raster, vector],
-  target: "map",
-  view: new View({
-    center: [-11000000, 4600000],
-    zoom: 15,
-  }),
-});
-
-_map.addInteraction(modify);
-
-let draw; // global so we can remove it later
-
-function addInteraction() {
-  const drawType = typeSelect.value;
-  const activeTip =
-    "Click to continue drawing the " +
-    (drawType === "Polygon" ? "polygon" : "line");
-  const idleTip = "Click to start measuring";
-  let tip = idleTip;
-  draw = new Draw({
-    source: source,
-    type: drawType,
-    style: function (feature) {
-      return styleFunction(feature, showSegments.checked, drawType, tip);
-    },
-  });
-  draw.on("drawstart", function () {
-    if (clearPrevious.checked) {
-      source.clear();
-    }
-    modify.setActive(false);
-    tip = activeTip;
-  });
-  draw.on("drawend", function () {
-    modifyStyle.setGeometry(tipPoint);
-    modify.setActive(true);
-    _map.once("pointermove", function () {
-      modifyStyle.setGeometry();
-    });
-    tip = idleTip;
-  });
-  modify.setActive(true);
-  _map.addInteraction(draw);
-}
-
-typeSelect.onchange = function () {
-  _map.removeInteraction(draw);
-  addInteraction();
-};
-
-addInteraction();
-
-showSegments.onchange = function () {
-  vector.changed();
-  draw.getOverlay().changed();
 };

@@ -36,8 +36,27 @@
     transform: rotate(360deg);
   }
 }
-
 .map-container {
-  height: calc(100vh - 50px);
+  height: calc(100vh - 90px);
   width: 100%;
+}
+
+.measuring-tool {
+  margin: 20px auto;
+}
+
+.reset-button {
+  border: none;
+  text-decoration: none;
+  font-size: large;
+  color: white;
+  border-radius: 5px;
+  padding: 15px 30px;
+  background-color: #6bb8d1;
+  cursor: pointer;
+  transition-duration: 0.4s;
+}
+
+.reset-button:hover {
+  background-color: #437e91; /* Green */
 }
