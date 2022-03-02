@@ -1,6 +1,8 @@
-# Getting Started with Create React App
+# OpenLayers Map
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Basic implementation of OpenLayers map with measuring tool feature.
+
+Reference for measuring tools: https://openlayers.org/en/latest/examples/measure-style.html
 
 ## Available Scripts
 
