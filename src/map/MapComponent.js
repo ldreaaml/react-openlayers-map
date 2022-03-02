@@ -138,6 +138,21 @@ const MapComponent = () => {
   return (
     <>
       <div ref={mapElement} className="map-container"></div>
+      <div className="measuring-tool">
+        <form class="form-inline">
+          <label for="type">Measurement type &nbsp;</label>
+          <select id="type">
+            <option value="LineString">Length (LineString)</option>
+            <option value="Polygon">Area (Polygon)</option>
+          </select>
+          &nbsp;&nbsp;&nbsp;&nbsp;
+          <label for="segments">Show segment lengths:&nbsp;</label>
+          <input type="checkbox" id="segments" checked />
+          &nbsp;&nbsp;&nbsp;&nbsp;
+          <label for="clear">Clear previous measure:&nbsp;</label>
+          <input type="checkbox" id="clear" checked />
+        </form>
+      </div>
     </>
   );
 };
