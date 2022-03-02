@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-
-// openlayers
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
 import OSM from "ol/source/OSM";
-import XYZ from "ol/source/XYZ";
 import { transform } from "ol/proj";
 import { fromLonLat } from "ol/proj";
 import Overlay from "ol/Overlay";
@@ -52,6 +49,20 @@ const MapComponent = () => {
     canvas.style.zIndex = 1;
     canvas.style.position = "absolute";
     canvas.style.border = "1px solid";
+    const c = () => {
+      return (
+        <canvas
+          id="a_boat"
+          style={{
+            width: 20,
+            height: 20,
+            position: "absolute",
+            border: "1px solid",
+            zIndex: 1,
+          }}
+        ></canvas>
+      );
+    };
 
     document.body.appendChild(canvas);
     const markerOverlay = new Overlay({
@@ -72,6 +83,7 @@ const MapComponent = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
         Authorization: {
           access_token: token,
           start_time: 1328480640000,
@@ -84,11 +96,8 @@ const MapComponent = () => {
       },
     })
       .then((response) => {
-        // Examine the text in the response
         console.log(response);
-        // response.json().then(function (data) {
-        //   console.log(data);
-        // });
+        data_set = response;
       })
       .catch(function (err) {
         console.log("Fetch Error: ", err);
