@@ -1,13 +1,219 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, createRef } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
-import OSM from "ol/source/OSM";
 import { transform } from "ol/proj";
 import { fromLonLat } from "ol/proj";
 import Overlay from "ol/Overlay";
+import { Draw, Modify } from "ol/interaction";
+import { LineString, Point } from "ol/geom";
+import { OSM, Vector as VectorSource } from "ol/source";
+import { Tile, Vector as VectorLayer } from "ol/layer";
+import { getArea, getLength } from "ol/sphere";
+import {
+  Circle as CircleStyle,
+  Fill,
+  RegularShape,
+  Stroke,
+  Style,
+  Text,
+} from "ol/style";
+
+const style = new Style({
+  fill: new Fill({
+    color: "rgba(255, 255, 255, 0.2)",
+  }),
+  stroke: new Stroke({
+    color: "rgba(0, 0, 0, 0.5)",
+    lineDash: [10, 10],
+    width: 2,
+  }),
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: "rgba(0, 0, 0, 0.7)",
+    }),
+    fill: new Fill({
+      color: "rgba(255, 255, 255, 0.2)",
+    }),
+  }),
+});
+
+const labelStyle = new Style({
+  text: new Text({
+    font: "14px Calibri,sans-serif",
+    fill: new Fill({
+      color: "rgba(255, 255, 255, 1)",
+    }),
+    backgroundFill: new Fill({
+      color: "rgba(0, 0, 0, 0.7)",
+    }),
+    padding: [3, 3, 3, 3],
+    textBaseline: "bottom",
+    offsetY: -15,
+  }),
+  image: new RegularShape({
+    radius: 8,
+    points: 3,
+    angle: Math.PI,
+    displacement: [0, 10],
+    fill: new Fill({
+      color: "rgba(0, 0, 0, 0.7)",
+    }),
+  }),
+});
+
+const tipStyle = new Style({
+  text: new Text({
+    font: "12px Calibri,sans-serif",
+    fill: new Fill({
+      color: "rgba(255, 255, 255, 1)",
+    }),
+    backgroundFill: new Fill({
+      color: "rgba(0, 0, 0, 0.4)",
+    }),
+    padding: [2, 2, 2, 2],
+    textAlign: "left",
+    offsetX: 15,
+  }),
+});
+
+const modifyStyle = new Style({
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: "rgba(0, 0, 0, 0.7)",
+    }),
+    fill: new Fill({
+      color: "rgba(0, 0, 0, 0.4)",
+    }),
+  }),
+  text: new Text({
+    text: "Drag to modify",
+    font: "12px Calibri,sans-serif",
+    fill: new Fill({
+      color: "rgba(255, 255, 255, 1)",
+    }),
+    backgroundFill: new Fill({
+      color: "rgba(0, 0, 0, 0.7)",
+    }),
+    padding: [2, 2, 2, 2],
+    textAlign: "left",
+    offsetX: 15,
+  }),
+});
+
+const segmentStyle = new Style({
+  text: new Text({
+    font: "12px Calibri,sans-serif",
+    fill: new Fill({
+      color: "rgba(255, 255, 255, 1)",
+    }),
+    backgroundFill: new Fill({
+      color: "rgba(0, 0, 0, 0.4)",
+    }),
+    padding: [2, 2, 2, 2],
+    textBaseline: "bottom",
+    offsetY: -12,
+  }),
+  image: new RegularShape({
+    radius: 6,
+    points: 3,
+    angle: Math.PI,
+    displacement: [0, 8],
+    fill: new Fill({
+      color: "rgba(0, 0, 0, 0.4)",
+    }),
+  }),
+});
+
+const formatLength = function (line) {
+  const length = getLength(line);
+  let output;
+  if (length > 100) {
+    output = Math.round((length / 1000) * 100) / 100 + " km";
+  } else {
+    output = Math.round(length * 100) / 100 + " m";
+  }
+  return output;
+};
+
+const formatArea = function (polygon) {
+  const area = getArea(polygon);
+  let output;
+  if (area > 10000) {
+    output = Math.round((area / 1000000) * 100) / 100 + " km\xB2";
+  } else {
+    output = Math.round(area * 100) / 100 + " m\xB2";
+  }
+  return output;
+};
+
+const source = new VectorSource();
+
+const modify = new Modify({ source: source, style: modifyStyle });
+
+let tipPoint;
 
 const MapComponent = () => {
+  const segmentStyles = [segmentStyle];
+
+  function styleFunction(feature, segments, drawType, tip) {
+    const styles = [style];
+    const geometry = feature.getGeometry();
+    const type = geometry.getType();
+    let point, label, line;
+    if (!drawType || drawType === type) {
+      if (type === "Polygon") {
+        point = geometry.getInteriorPoint();
+        label = formatArea(geometry);
+        line = new LineString(geometry.getCoordinates()[0]);
+      } else if (type === "LineString") {
+        point = new Point(geometry.getLastCoordinate());
+        label = formatLength(geometry);
+        line = geometry;
+      }
+    }
+    if (segments && line) {
+      let count = 0;
+      line.forEachSegment(function (a, b) {
+        const segment = new LineString([a, b]);
+        const label = formatLength(segment);
+        if (segmentStyles.length - 1 < count) {
+          segmentStyles.push(segmentStyle.clone());
+        }
+        const segmentPoint = new Point(segment.getCoordinateAt(0.5));
+        segmentStyles[count].setGeometry(segmentPoint);
+        segmentStyles[count].getText().setText(label);
+        styles.push(segmentStyles[count]);
+        count++;
+      });
+    }
+    if (label) {
+      labelStyle.setGeometry(point);
+      labelStyle.getText().setText(label);
+      styles.push(labelStyle);
+    }
+    if (
+      tip &&
+      type === "Point" &&
+      !modify.getOverlay().getSource().getFeatures().length
+    ) {
+      tipPoint = geometry;
+      tipStyle.getText().setText(tip);
+      styles.push(tipStyle);
+    }
+    return styles;
+  }
+
+  const vector = new VectorLayer({
+    source: source,
+    style: function (feature) {
+      return styleFunction(feature, true);
+    },
+  });
+
+  // measuring tools
   var lower = [156.24702734375, -51.040750041469];
   var upper = [360 + -170.48637109375, -30.939046030799];
   const getCenterOfExtent = (Extent) => {
@@ -28,6 +234,7 @@ const MapComponent = () => {
         new TileLayer({
           source: new OSM(),
         }),
+        vector,
       ],
       view: new View({
         center: fromLonLat([-74.006, 40.712]), // Coordinates of New York
@@ -35,6 +242,57 @@ const MapComponent = () => {
       }),
     });
 
+    //interaction
+    _map.addInteraction(modify);
+    let draw; // global so we can remove it later
+
+    function addInteraction() {
+      //   const drawType = typeSelect.value;
+      const drawType = "Polygon";
+      const activeTip =
+        "Click to continue drawing the " +
+        (drawType === "Polygon" ? "polygon" : "line");
+      const idleTip = "Click to start measuring";
+      let tip = idleTip;
+      draw = new Draw({
+        source: source,
+        type: drawType,
+        style: function (feature) {
+          return styleFunction(feature, true, drawType, tip);
+        },
+      });
+      draw.on("drawstart", function () {
+        if (false) {
+          // if (false) {
+          source.clear();
+        }
+        modify.setActive(false);
+        tip = activeTip;
+      });
+      draw.on("drawend", function () {
+        modifyStyle.setGeometry(tipPoint);
+        modify.setActive(true);
+        _map.once("pointermove", function () {
+          modifyStyle.setGeometry();
+        });
+        tip = idleTip;
+      });
+      modify.setActive(true);
+      _map.addInteraction(draw);
+    }
+    // typeSelect.onchange = function () {
+    //   map.removeInteraction(draw);
+    //   addInteraction();
+    // };
+
+    addInteraction();
+
+    // showSegments.onchange = function () {
+    //   vector.changed();
+    //   draw.getOverlay().changed();
+    // };
+
+    //overlay
     var lowerXY = transform(lower, "EPSG:4326", "EPSG:3857");
     var upperXY = transform(upper, "EPSG:4326", "EPSG:3857");
     var extent = lowerXY.concat(upperXY);
@@ -49,20 +307,6 @@ const MapComponent = () => {
     canvas.style.zIndex = 1;
     canvas.style.position = "absolute";
     canvas.style.border = "1px solid";
-    const c = () => {
-      return (
-        <canvas
-          id="a_boat"
-          style={{
-            width: 20,
-            height: 20,
-            position: "absolute",
-            border: "1px solid",
-            zIndex: 1,
-          }}
-        ></canvas>
-      );
-    };
 
     document.body.appendChild(canvas);
     const markerOverlay = new Overlay({
