@@ -74,10 +74,7 @@ const styleFunction = (feature, segments, drawType, tip) => {
 };
 
 const MapComponent = () => {
-  const [map, setMap] = useState();
   const mapElement = useRef();
-  const mapRef = useRef();
-  mapRef.current = map;
   useEffect(() => {
     const vector = new VectorLayer({
       source: source,
@@ -218,7 +215,6 @@ const MapComponent = () => {
         }
       }
     };
-    setMap(_map);
     setInterval(() => {
       updateOverlay();
       index = index + 1;
